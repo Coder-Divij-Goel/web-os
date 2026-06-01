@@ -1,0 +1,1706 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>CoreShell OS - Enterprise Edition</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: '-apple-system', BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+        body, html { width: 100%; height: 100%; overflow: hidden; background: #05020c; color: #f4f4f5; user-select: none; }
+        
+        :root {
+            --bg-gradient: radial-gradient(circle at 50% 50%, rgba(10, 8, 20, 0.9) 0%, rgba(3, 2, 8, 1) 100%);
+            --panel-bg: rgba(9, 7, 16, 0.96);
+            --header-bg: #030206;
+            --accent-primary: #00f2fe;
+            --accent-secondary: #7c4dff;
+            --text-main: #e6eef3;
+            --text-muted: #9aa4ad;
+            --border-glow: rgba(0, 242, 254, 0.15);
+            --input-bg: #0d1114;
+            --card-hover: rgba(124, 77, 255, 0.15);
+            --win: #6ee7b7;
+            --lose: #ff8a80;
+        }
+
+        body { background: var(--bg-gradient); background-size: cover; background-position: center; color: var(--text-main); transition: background 0.3s; }
+        #desktop { width: 100%; height: 100%; position: relative; display: flex; flex-direction: column; }
+        
+        /* Protection Security Layer */
+        #lock-screen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(3, 1, 8, 0.98); backdrop-filter: blur(40px); z-index: 10000; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; }
+        .lock-panel { background: var(--panel-bg); border: 2px solid var(--accent-secondary); padding: 25px; border-radius: 20px; box-shadow: 0 0 40px rgba(124,77,255,0.2); display: flex; flex-direction: column; align-items: center; gap: 15px; width: 100%; max-width: 360px; text-align: center; }
+        .lock-time { font-size: 42px; font-weight: 900; text-shadow: 0 0 20px var(--accent-secondary); letter-spacing: 2px; }
+        .lock-date { font-size: 11px; color: var(--accent-primary); font-weight: 700; text-transform: uppercase; letter-spacing: 3px; }
+        .security-badge { font-size: 10px; background: rgba(124, 77, 255, 0.2); color: #b39ddb; padding: 4px 8px; border-radius: 4px; font-weight: bold; border: 1px solid var(--accent-secondary); width: 100%; }
+        .lockout-msg { font-size: 11px; color: #ff8a80; font-weight: bold; padding: 6px; background: rgba(255,138,128,0.1); border: 1px solid #ff8a80; border-radius: 6px; width: 100%; display: none; }
+
+        /* Springboard Grid Area Canvas Layout */
+        #home-screen { flex: 1; padding: 16px; display: grid; grid-template-columns: repeat(auto-fill, minmax(76px, 1fr)); grid-auto-rows: max-content; gap: 16px; overflow-y: auto; justify-items: center; align-content: start; }
+        .app-icon { display: flex; flex-direction: column; align-items: center; gap: 6px; cursor: pointer; width: 76px; text-align: center; -webkit-tap-highlight-color: transparent; }
+        .app-icon-graphic { width: 56px; height: 56px; background: var(--header-bg); border-radius: 14px; display: flex; align-items: center; justify-content: center; font-size: 24px; border: 2px solid var(--accent-primary); box-shadow: 0 4px 12px rgba(0,0,0,0.4); transition: transform 0.1s; }
+        .app-icon:active .app-icon-graphic { transform: scale(0.9); }
+        .app-label { font-size: 11px; font-weight: 600; color: var(--text-main); text-shadow: 0 2px 4px rgba(0,0,0,0.8); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%; }
+
+        /* App System Window Frameworks */
+        .mobile-window { position: absolute; top: 0; left: 0; width: 100%; height: calc(100% - 60px); background: var(--panel-bg); display: none; flex-direction: column; z-index: 100; overflow: hidden; }
+        .mobile-window.active { display: flex; }
+        
+        .mobile-header { height: 48px; background: var(--header-bg); display: flex; align-items: center; justify-content: space-between; padding: 0 14px; border-bottom: 2px solid var(--accent-secondary); flex-shrink: 0; }
+        .mobile-header-title { font-size: 12px; font-weight: 800; color: var(--accent-primary); text-transform: uppercase; letter-spacing: 0.5px; }
+        .back-btn { padding: 6px 12px; background: var(--accent-secondary); border: none; border-radius: 6px; color: white; font-size: 11px; font-weight: 700; cursor: pointer; text-transform: uppercase; }
+
+        .app-scroll-body { flex: 1; overflow-y: auto; padding: 14px; display: flex; flex-direction: column; gap: 14px; -webkit-overflow-scrolling: touch; }
+        
+        /* Universal Forms & Interactive Elements */
+        .mobile-form-row { display: flex; gap: 6px; width: 100%; align-items: center; flex-wrap: wrap; }
+        .input-field { flex: 1; min-width: 100px; padding: 0 12px; background: var(--input-bg); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 8px; color: var(--text-main); font-size: 13px; height: 38px; outline: none; }
+        .input-field:focus { border-color: var(--accent-primary); }
+        .action-btn { padding: 0 14px; background: var(--accent-secondary); border: none; border-radius: 8px; color: white; cursor: pointer; font-weight: 700; font-size: 11px; height: 38px; text-transform: uppercase; display: flex; align-items: center; justify-content: center; gap: 4px; }
+
+        /* Core System Taskbar/Dock Subsystem */
+        #mobile-dock { height: 60px; background: var(--header-bg); border-top: 2px solid var(--accent-secondary); display: flex; justify-content: space-around; align-items: center; padding: 0 6px; z-index: 999; box-shadow: 0 -5px 20px rgba(0,0,0,0.5); flex-shrink: 0; }
+        .dock-item { font-size: 22px; cursor: pointer; padding: 8px; -webkit-tap-highlight-color: transparent; }
+        .taskbar-clock { color: var(--accent-primary); font-size: 10px; font-weight: 800; padding: 4px 8px; background: rgba(255,255,255,0.05); border-radius: 6px; display: flex; flex-direction: column; align-items: center; gap: 2px; justify-content: center;}
+
+        /* Power UI Overlays */
+        .power-container { display: flex; gap: 6px; align-items: center; }
+        .power-btn { font-size: 14px; padding: 4px 8px; border: 1px solid rgba(255,255,255,0.15); border-radius: 6px; background: rgba(255,255,255,0.04); cursor: pointer; color: var(--text-main); transition: background 0.2s; }
+        .power-btn:hover { background: rgba(255,255,255,0.15); }
+        .power-shutdown { border-color: #ef4444; color: #f87171; }
+        .power-sleep { border-color: #3b82f6; color: #60a5fa; }
+        .power-restart { border-color: #eab308; color: #fde047; }
+        #system-power-screen { position: absolute; top:0; left:0; width:100%; height:100%; background:#000; z-index:20000; display:none; flex-direction:column; align-items:center; justify-content:center; gap:20px; color:#fff; }
+        .spinner-loader { border: 4px solid rgba(255,255,255,0.1); border-left-color: var(--accent-primary); border-radius: 50%; width: 36px; height: 36px; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        /* Maps Component Overlays */
+        .mobile-map-hud { position: absolute; top: 10px; left: 10px; right: 10px; z-index: 1000; background: var(--panel-bg); padding: 8px; border-radius: 10px; border: 1.5px solid var(--accent-primary); display: flex; flex-direction: column; gap: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.5); }
+        .shrunk-input { height: 32px; font-size: 12px; }
+        .shrunk-btn { height: 32px; font-size: 10px; }
+
+        /* Component Control Systems */
+        .sidebar-layout { display: flex; flex-direction: column; gap: 12px; width: 100%; }
+        .settings-card { background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.08); padding: 12px; border-radius: 10px; display: flex; flex-direction: column; gap: 8px; }
+        .settings-toggle-row { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
+
+        /* Audio Custom Skin */
+        .music-vinyl-plate { width: 110px; height: 110px; border-radius: 50%; background: radial-gradient(circle, #222 20%, #000 60%, #111 100%); margin: 10px auto; border: 4px solid var(--accent-secondary); box-shadow: 0 0 20px rgba(124,77,255,0.3); display: flex; align-items: center; justify-content: center; }
+        .music-vinyl-plate.spinning { animation: spinPlate 4s infinite linear; }
+        .music-center-sticker { width: 30px; height: 30px; background: var(--accent-primary); border-radius: 50%; }
+        @keyframes spinPlate { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+        /* RETRO WINDOWS 10 PAINT APP INTERFACE */
+        .w10-paint-container { flex: 1; display: flex; flex-direction: column; background: #1a1a1a; color: #ffffff; overflow: hidden; }
+        .w10-paint-toolbar { display: flex; background: #111; padding: 6px; gap: 6px; align-items: center; border-bottom: 1px solid #2a2a2a; flex-wrap: wrap; overflow-y: auto; max-height: 110px; }
+        .w10-tool-btn { background: #222; color: white; border: 1px solid #444; padding: 5px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; display: flex; align-items: center; gap: 3px; }
+        .w10-tool-btn.active { background: #0078d4; border-color: #00a2ed; }
+        .w10-canvas-workspace { flex: 1; background: #0b0f12; display: flex; align-items: center; justify-content: center; overflow: auto; padding: 20px; position: relative; }
+        .w10-canvas-element { background: #ffffff; border: 1px solid #444; box-shadow: 0 4px 12px rgba(0,0,0,0.5); cursor: crosshair; touch-action: none; transform-origin: center center; }
+
+        /* WINDOWS 10 PAINT 3D LAB PLATFORM SPECIFIC STYLING */
+        #paint3d-canvas-container { flex: 1; background: #202225; border-radius: 10px; border: 1px solid rgba(255,255,255,0.1); position: relative; overflow: auto; touch-action: none; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; position: relative; }
+        .p3d-select-input { height: 32px; padding: 0 6px; background: #111; border: 1px solid #444; border-radius: 4px; color: #fff; font-size: 11px; outline: none; }
+        .p3d-toggle-mode-btn { background: #2a2c30; border: 1px solid #444; color: #fff; font-size: 11px; padding: 6px 10px; border-radius: 4px; cursor: pointer; }
+        .p3d-toggle-mode-btn.active { background: #0078d4; border-color: #0078d4; }
+        .paint-toolbar { display: flex; gap: 6px; align-items: center; background: #111; padding: 6px; overflow-x: auto; flex-wrap: wrap; border-bottom: 1px solid #2a2a2a; }
+
+        /* ARCADE EXPANSION STYLING */
+        .arcade-hub-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; width: 100%; }
+        .arcade-game-card { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 10px; text-align: center; cursor: pointer; font-size: 12px; transition: background 0.2s; }
+        .arcade-game-card:hover { background: var(--card-hover); }
+        .game-viewport-container { flex: 1; background: #000; display: flex; flex-direction: column; position: relative; overflow: hidden; }
+
+        /* TICTACTOE PORT-ALIGNED EXTENDED CONTAINER */
+        .ttt-controls { background: rgba(255,255,255,0.02); border-radius: 10px; padding: 10px; border: 1px solid rgba(255,255,255,0.05); display: flex; flex-direction: column; gap: 8px; }
+        .ttt-board-container { display: grid; gap: 6px; margin: 10px auto; justify-content: center; align-content: center; }
+        .ttt-square { width: 52px; height: 52px; border-radius: 8px; background: rgba(255,255,255,0.04); display: flex; align-items: center; justify-content: center; font-size: 22px; font-weight: bold; cursor: pointer; user-select: none; border: 1px solid rgba(255,255,255,0.02); transition: transform 0.06s; }
+        .ttt-square.occupied { cursor: not-allowed; }
+        .ttt-square.win-highlight { background: linear-gradient(90deg, rgba(110,231,183,0.2), rgba(124,77,255,0.15)); border-color: var(--accent-primary); }
+
+        /* SECURE FILE VAULT & SETTINGS GATEWAYS INTERFACES */
+        .secure-auth-screen { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; gap: 12px; max-width: 320px; margin: 0 auto; text-align: center; padding: 10px; }
+        .vault-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); gap: 10px; width: 100%; }
+        .vault-item-card { background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 8px; display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; }
+        .vault-thumbnail { width: 100%; aspect-ratio: 1; background: #000; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 20px; object-fit: cover; border: 1px solid rgba(255,255,255,0.05); }
+        .vault-meta-title { font-size: 10px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%; }
+
+        /* WALLPAPER CONFIG PREVIEWS */
+        .wallpaper-preview-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 6px; }
+        .wp-box { height: 44px; border-radius: 6px; border: 1.5px solid rgba(255,255,255,0.1); cursor: pointer; background-size: cover; background-position: center; }
+        .wp-box.active { border-color: var(--accent-primary); box-shadow: 0 0 8px var(--accent-primary); }
+
+        /* NOTES APP SPECIFIC UI */
+        .notes-layout { flex: 1; display: flex; flex-direction: column; gap: 10px; overflow: hidden; }
+        .notes-list-item { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); padding: 10px; border-radius: 8px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
+        .notes-editor-view { display: flex; flex-direction: column; gap: 8px; height: 100%; }
+
+        /* Custom Switch Component */
+        .switch { position: relative; display: inline-block; width: 40px; height: 22px; flex-shrink: 0; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #333; transition: .2s; border-radius: 22px; }
+        .slider:before { position: absolute; content: ""; height: 14px; width: 14px; left: 4px; bottom: 4px; background-color: white; transition: .2s; border-radius: 50%; }
+        input:checked + .slider { background-color: var(--accent-primary); }
+        input:checked + .slider:before { transform: translateX(18px); }
+
+        /* Iframe Protection Error fallbacks UI styling */
+        .browser-fallback-container { padding: 20px; text-align: center; display: flex; flex-direction: column; gap: 12px; align-items: center; justify-content: center; height: 100%; background: #111; color: var(--text-main); }
+    </style>
+</head>
+<body>
+
+    <div id="system-power-screen">
+        <div class="spinner-loader" id="power-loader"></div>
+        <h2 id="power-screen-msg" style="font-weight:300; letter-spacing:1px; text-align:center; padding: 0 10px;">Shutting down system...</h2>
+        <button class="action-btn" id="system-power-on-btn" style="display:none; margin-top:20px; background:var(--accent-primary); color:#000;" onclick="bootSystemUpFromHalt()">🔌 Power On System</button>
+    </div>
+
+    <div id="lock-screen">
+        <div class="lock-panel">
+            <div>
+                <div class="lock-time" id="lock-time-display">00:00</div>
+                <div class="lock-date" id="lock-date-display">SECURE NODE STANDBY</div>
+                <div class="security-badge">🛡️ MATRIX SECURITY SUBSYSTEM LAYER</div>
+            </div>
+            
+            <div id="lock-stage-standard" style="width: 100%; display: flex; flex-direction: column; gap: 8px;">
+                <span id="lock-prompt-lbl" style="font-size: 10px; color: var(--accent-primary);">ENTER OS GATEWAY ACCESS PIN</span>
+                <div class="lockout-msg" id="lockout-timer-banner">SECURITY TIMEOUT ACTIVE</div>
+                <div class="mobile-form-row" id="lock-input-container">
+                    <input type="password" id="lock-pin-input" class="input-field" placeholder="Master Pin / Phrase">
+                    <button class="action-btn" id="lock-submit-btn" onclick="processLockscreenAuthenticationAttempt()">Verify ➡️</button>
+                </div>
+            </div>
+
+            <div id="lock-stage-tier2" style="width: 100%; display: none; flex-direction: column; gap: 8px;">
+                <span style="font-size: 10px; color: #a855f7; font-weight: bold; letter-spacing: 1px;">🔐 MULTI-FACTOR CHALLENGE TIER 2</span>
+                <p style="font-size: 10px; color: var(--text-muted);">Please present Secondary Phase Cryptographic Factor to finish authorization matrix.</p>
+                <div class="mobile-form-row">
+                    <input type="password" id="lock-tier2-input" class="input-field" placeholder="Secondary Phase Code" style="border-color: #a855f7;">
+                    <button class="action-btn" style="background: #a855f7;" onclick="processTier2AuthenticationValidation()">Complete Auth</button>
+                </div>
+            </div>
+
+            <div id="lock-stage-permanent" style="width: 100%; display: none; flex-direction: column; gap: 8px;">
+                <span style="font-size: 10px; color: #ef4444; font-weight: 900; letter-spacing: 1px;">🚨 CRITICAL SECURITY FAULT HARD LOCKDOWN</span>
+                <p style="font-size: 10px; color: var(--text-muted);">Maximum authorization failure threshold violated. Enter structural security cryptographic override phrase to clear register allocation blocks.</p>
+                <div class="mobile-form-row">
+                    <input type="password" id="lock-permanent-override-input" class="input-field" placeholder="Cryptographic Emergency Token" style="border-color: #ef4444;">
+                    <button class="action-btn" style="background: #ef4444;" onclick="processPermanentOverrideKeyVerification()">Rescue Node</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="desktop">
+        
+        <div id="home-screen">
+            <div class="app-icon" onclick="launchMobileApp('video-player')">
+                <div class="app-icon-graphic" style="color: #ff0000; border-color: #ff0000;">📺</div>
+                <div class="app-label">Video Deck</div>
+            </div>
+            <div class="app-icon" onclick="launchMobileApp('music-player')">
+                <div class="app-icon-graphic" style="color: var(--accent-secondary); border-color: var(--accent-secondary);">🎵</div>
+                <div class="app-label">Audio Stream</div>
+            </div>
+            <div class="app-icon" onclick="launchMobileApp('maps')">
+                <div class="app-icon-graphic" style="color: #22c55e; border-color: #22c55e;">🗺️</div>
+                <div class="app-label">Secure Maps</div>
+            </div>
+            <div class="app-icon" onclick="launchMobileApp('hyperweb')">
+                <div class="app-icon-graphic" style="color: #a855f7; border-color: #a855f7;">🌐</div>
+                <div class="app-label">Browser Deck</div>
+            </div>
+            <div class="app-icon" onclick="launchMobileApp('games')">
+                <div class="app-icon-graphic" style="color: #f59e0b; border-color: #f59e0b;">🕹️</div>
+                <div class="app-label">Arcade Hub</div>
+            </div>
+            <div class="app-icon" onclick="launchMobileApp('notes')">
+                <div class="app-icon-graphic" style="color: #fbbf24; border-color: #fbbf24;">📝</div>
+                <div class="app-label">Pad Notes</div>
+            </div>
+            <div class="app-icon" onclick="launchMobileApp('paint10')">
+                <div class="app-icon-graphic" style="border-color: #0078d4; font-size: 20px;">🎨10</div>
+                <div class="app-label">Paint 10</div>
+            </div>
+            <div class="app-icon" onclick="launchMobileApp('paint3d')">
+                <div class="app-icon-graphic" style="border-color: #da3b01; font-size: 20px;">🎨3D</div>
+                <div class="app-label">Paint 3D</div>
+            </div>
+            <div class="app-icon" onclick="launchMobileApp('vault')">
+                <div class="app-icon-graphic" style="border-color: #ea580c;">🔒</div>
+                <div class="app-label">Safe Vault</div>
+            </div>
+            <div class="app-icon" onclick="launchMobileApp('antivirus')">
+                <div class="app-icon-graphic" style="color: #00f2fe; border-color: #00f2fe;">🛡️</div>
+                <div class="app-label">Antivirus</div>
+            </div>
+            <div class="app-icon" onclick="launchMobileApp('settings')">
+                <div class="app-icon-graphic" style="color: #64748b; border-color: #64748b;">⚙️</div>
+                <div class="app-label">Settings</div>
+            </div>
+        </div>
+
+        <div id="win-video-player" class="mobile-window">
+            <div class="mobile-header">
+                <span class="mobile-header-title">Secure Video Engine</span>
+                <button class="back-btn" onclick="closeActiveMobileWindow('video-player')">Home</button>
+            </div>
+            <div class="app-scroll-body">
+                <div class="mobile-form-row">
+                    <button class="action-btn" style="width:100%; background:#ff0000;" onclick="document.getElementById('native-video-loader').click()">📁 Open Local Video</button>
+                    <input type="file" id="native-video-loader" accept="video/*" style="display:none;" onchange="loadLocalVideoAsset(this)">
+                </div>
+                <div style="width:100%; aspect-ratio:16/9; background:#000; border-radius:10px; overflow:hidden; border:1px solid #333;">
+                    <video id="native-core-video" style="width:100%; height:100%;" controls></video>
+                </div>
+            </div>
+        </div>
+
+        <div id="win-music-player" class="mobile-window">
+            <div class="mobile-header">
+                <span class="mobile-header-title">Secure Audio Deck</span>
+                <button class="back-btn" onclick="closeActiveMobileWindow('music-player')">Home</button>
+            </div>
+            <div class="app-scroll-body" style="justify-content:center; align-items:center;">
+                <div class="music-vinyl-plate" id="music-vinyl-disc">
+                    <div class="music-center-sticker"></div>
+                </div>
+                <h4 id="audio-track-title" style="font-size:13px; color:var(--accent-primary); text-align:center; margin-bottom:10px;">No Track Loaded</h4>
+                <div class="settings-card" style="width:100%; max-width:280px; background:rgba(0,0,0,0.3);">
+                    <div style="display:flex; justify-content:space-around; align-items:center;">
+                        <button class="action-btn" style="border-radius:50%; width:40px; height:40px;" onclick="document.getElementById('native-audio-loader').click()">📁</button>
+                        <button class="action-btn" style="border-radius:50%; width:48px; height:48px; background:var(--accent-secondary);" onclick="toggleAudioPlayback()">⏯️</button>
+                    </div>
+                    <input type="file" id="native-audio-loader" accept="audio/*" style="display:none;" onchange="loadLocalAudioAsset(this)">
+                    <audio id="native-core-audio"></audio>
+                </div>
+            </div>
+        </div>
+
+        <div id="win-maps" class="mobile-window">
+            <div class="mobile-header">
+                <span class="mobile-header-title">Map Navigator Terminal</span>
+                <button class="back-btn" onclick="closeActiveMobileWindow('maps')">Home</button>
+            </div>
+            <div style="position:relative; flex:1; width:100%; height:100%; display:flex; flex-direction:column;">
+                <div class="mobile-map-hud">
+                    <input type="text" id="shrunk-map-search" class="input-field shrunk-input" placeholder="Latitude, Longitude (e.g. 28.61, 77.20)">
+                    <div style="display:flex; gap:6px;">
+                        <button class="action-btn shrunk-btn" style="flex:1;" onclick="locateSpatialTargetAddress()">Jump</button>
+                        <button class="action-btn shrunk-btn" style="flex:1; background:#22c55e;" onclick="getCurrentPositionSimulated()">Sync Location</button>
+                    </div>
+                </div>
+                <div id="spatial-map-canvas" style="width:100%; flex:1; min-height:300px; background:#111;"></div>
+            </div>
+        </div>
+
+        <div id="win-hyperweb" class="mobile-window">
+            <div class="mobile-header">
+                <span class="mobile-header-title">Browser Deck</span>
+                <button class="back-btn" onclick="closeActiveMobileWindow('hyperweb')">Home</button>
+            </div>
+            <div style="display:flex; flex-direction:column; width:100%; height:100%; background:#fff;">
+                <div style="display:flex; gap:6px; padding:6px; background:#f1f3f4; align-items:center;">
+                    <input type="text" id="universal-browser-search-box" class="input-field" style="height:32px; background:#fff; color:#000;" value="https://www.wikipedia.org">
+                    <button class="action-btn" style="height:32px; font-size:10px;" onclick="processUniversalEngineSearch()">Go</button>
+                </div>
+                <div id="browser-viewport-mount" style="flex:1; width:100%; overflow:hidden;">
+                    <iframe id="browser-live-frame" src="https://www.wikipedia.org" style="width:100%; height:100%; border:none; background:#fff;"></iframe>
+                </div>
+            </div>
+        </div>
+
+        <div id="win-games" class="mobile-window">
+            <div class="mobile-header">
+                <span class="mobile-header-title">Retro Arcade Port</span>
+                <button class="back-btn" onclick="closeActiveMobileWindow('games')">Home</button>
+            </div>
+            
+            <div class="app-scroll-body" id="arcade-main-menu">
+                <div class="settings-card" style="margin-bottom: 5px;">
+                    <span style="font-size:11px; color:var(--accent-primary); font-weight:700; display:block; margin-bottom:4px;">ARCADE SYSTEM DIFFICULTY TIER</span>
+                    <select id="arcade-global-difficulty" class="p3d-select-input" style="width:100%; height:34px;">
+                        <option value="easy">Casual Mode (Slower / Responsive)</option>
+                        <option value="medium" selected>Standard Mode (Balanced Velocity)</option>
+                        <option value="hard">Expert Core Mode (Aggressive Engine Loop)</option>
+                    </select>
+                </div>
+                <span style="font-size:11px; color:var(--accent-primary); font-weight:700;">CHOOSE NATIVE ENGINE:</span>
+                <div class="arcade-hub-grid">
+                    <div class="arcade-game-card" onclick="bootArcadeGame('tictactoe')">❌ Advanced Tic-Tac-Toe</div>
+                    <div class="arcade-game-card" onclick="bootArcadeGame('snake')">🐍 Classic Snake</div>
+                    <div class="arcade-game-card" onclick="bootArcadeGame('pong')">🏓 Vector Pong</div>
+                    <div class="arcade-game-card" onclick="bootArcadeGame('catcher')">🍎 Fruit Collector</div>
+                    <div class="arcade-game-card" onclick="bootArcadeGame('blockevade')">🔲 Block Evader</div>
+                </div>
+            </div>
+
+            <div class="game-viewport-container" id="arcade-viewport" style="display:none;">
+                <div style="background:#111; padding:6px; display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #222;">
+                    <span id="game-active-title" style="font-size:11px; font-weight:bold; color:var(--accent-primary);">Game Window</span>
+                    <div style="display:flex; gap:6px;">
+                        <button class="action-btn" id="game-replay-btn" style="height:26px; font-size:9px; padding:0 8px; background:var(--accent-secondary);" onclick="triggerActiveGameReplay()">🔄 Replay</button>
+                        <button class="action-btn" style="height:26px; font-size:9px; padding:0 8px; background:#e81123;" onclick="closeActiveArcadeGame()">Exit</button>
+                    </div>
+                </div>
+                <div style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:start; padding:10px; overflow-y:auto;">
+                    <div id="game-canvas-mount-point" style="width:100%; display:flex; justify-content:center; align-items:center; flex-direction:column;"></div>
+                    
+                    <div id="arcade-dpad-controller" style="margin-top:12px; display:none; grid-template-columns: repeat(3, 46px); gap:6px; justify-content:center;">
+                        <div></div><button class="action-btn" style="height:40px; padding:0;" onclick="sendHardwareDirectionInput('ArrowUp')">▲</button><div></div>
+                        <button class="action-btn" style="height:40px; padding:0;" onclick="sendHardwareDirectionInput('ArrowLeft')">◀</button>
+                        <button class="action-btn" style="height:40px; padding:0; background:#333;" onclick="sendHardwareDirectionInput('Enter')">OK</button>
+                        <button class="action-btn" style="height:40px; padding:0;" onclick="sendHardwareDirectionInput('ArrowRight')">▶</button>
+                        <div></div><button class="action-btn" style="height:40px; padding:0;" onclick="sendHardwareDirectionInput('ArrowDown')">▼</button><div></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="win-notes" class="mobile-window">
+            <div class="mobile-header">
+                <span class="mobile-header-title">Pad Notes Secure</span>
+                <button class="back-btn" onclick="closeActiveMobileWindow('notes')">Home</button>
+            </div>
+            <div class="app-scroll-body">
+                <div id="notes-list-wrapper" class="notes-layout">
+                    <button class="action-btn" onclick="openNotesEditor(null)">➕ Create New Note</button>
+                    <div id="notes-container-items" style="display:flex; flex-direction:column; gap:8px;"></div>
+                </div>
+                <div id="notes-edit-wrapper" class="notes-editor-view" style="display:none;">
+                    <input type="text" id="note-title-input" class="input-field" placeholder="Note Title">
+                    <textarea id="note-body-input" class="input-field" style="flex:1; height:180px; padding:10px; resize:none;" placeholder="Write body description..."></textarea>
+                    <div style="display:flex; gap:6px;">
+                        <button class="action-btn" style="flex:1; background:#22c55e;" onclick="saveActiveNoteData()">Save</button>
+                        <button class="action-btn" style="flex:1; background:#555;" onclick="exitNotesEditorView()">Cancel</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="win-paint10" class="mobile-window">
+            <div class="mobile-header">
+                <span class="mobile-header-title">Paint 10 Pro Studio</span>
+                <button class="back-btn" onclick="closeActiveMobileWindow('paint10')">Home</button>
+            </div>
+            <div class="w10-paint-container">
+                <div class="w10-paint-toolbar">
+                    <button class="w10-tool-btn active" id="w10tool-pencil" onclick="setW10ToolMode('pencil')">✏️ Pencil</button>
+                    <button class="w10-tool-btn" id="w10tool-brush" onclick="setW10ToolMode('brush')">🖌️ Brush</button>
+                    <button class="w10-tool-btn" id="w10tool-eraser" onclick="setW10ToolMode('eraser')">🧽 Eraser</button>
+                    <button class="w10-tool-btn" id="w10tool-line" onclick="setW10ToolMode('line')">➖ Line</button>
+                    <button class="w10-tool-btn" id="w10tool-rect" onclick="setW10ToolMode('rect')">⬜ Rect</button>
+                    <button class="w10-tool-btn" id="w10tool-circle" onclick="setW10ToolMode('circle')">⭕ Circle</button>
+                    <button class="w10-tool-btn" id="w10tool-bucket" onclick="setW10ToolMode('bucket')">🪣 Fill</button>
+                    <div style="display:flex; align-items:center; gap:4px; background: #000; padding: 2px 6px; border-radius: 4px;">
+                        <span style="font-size:9px; color:var(--text-muted);">ZOOM SCROLLBAR:</span>
+                        <input type="range" id="w10-zoom-slider" min="40" max="300" value="100" style="width:80px;" oninput="adjustPaint10ZoomFromSlider(this.value)">
+                        <span id="w10-zoom-lbl" style="font-size:10px; min-width:32px; text-align:center;">100%</span>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:4px;">
+                        <input type="color" id="w10-paint-color" value="#0078d4" style="border:none; width:24px; height:24px; background:none;">
+                        <input type="range" id="w10-brush-size" min="1" max="25" value="4" style="width:50px;">
+                    </div>
+                    <button class="w10-tool-btn" style="background:#0078d4;" onclick="saveW10CanvasToVault()">💾 Vault</button>
+                    <button class="w10-tool-btn" style="background:#a20025;" onclick="clearW10CanvasWorkspace()">Wipe</button>
+                </div>
+                <div class="w10-canvas-workspace" id="w10-workspace-area">
+                    <canvas id="w10-paint-canvas" class="w10-canvas-element" width="340" height="340"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <div id="win-paint3d" class="mobile-window">
+            <div class="mobile-header">
+                <span class="mobile-header-title">Paint 3D Mesh Engine</span>
+                <button class="back-btn" onclick="closeActiveMobileWindow('paint3d')">Home</button>
+            </div>
+            <div class="app-scroll-body" style="padding:8px; gap:8px;">
+                <div class="paint-toolbar">
+                    <select id="p3d-primitive-selector" class="p3d-select-input" onchange="updateSelected3DPrimitive(this.value)">
+                        <option value="cube">📦 3D Cube primitive</option>
+                        <option value="sphere">🔮 Geometric Sphere</option>
+                        <option value="cylinder">🛢️ Cylinder Mesh</option>
+                        <option value="cone">📐 Cone primitive</option>
+                    </select>
+                    <div style="display:flex; align-items:center; gap:2px; background: #000; padding: 2px 4px; border-radius: 4px;">
+                        <button class="p3d-toggle-mode-btn" style="padding: 4px 6px; font-weight: bold;" onclick="adjustPaint3DZoomScale(0.15)">🔍+</button>
+                        <span id="p3d-zoom-lbl" style="font-size:10px; min-width:32px; text-align:center;">100%</span>
+                        <button class="p3d-toggle-mode-btn" style="padding: 4px 6px; font-weight: bold;" onclick="adjustPaint3DZoomScale(-0.15)">🔍-</button>
+                    </div>
+                    <input type="color" id="p3d-brush-color" value="#ff007f" style="width:28px; height:28px; border:none; background:none;">
+                    <button class="action-btn" style="height:32px; font-size:10px; background:#0078d4;" onclick="snapshotPaint3DToVault()">💾 Vault</button>
+                    <button class="action-btn" style="height:32px; font-size:10px; background:#a20025;" onclick="clearPaint3DCanvasWorkspace()">Reset</button>
+                </div>
+                <div id="paint3d-canvas-container">
+                    <canvas id="p3d-render-canvas" style="background:#1e2022; border-radius:8px; transition: transform 0.1s ease-out; transform-origin: center center;"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <div id="win-vault" class="mobile-window">
+            <div class="mobile-header">
+                <span class="mobile-header-title">Storage Allocation Explorer</span>
+                <button class="back-btn" onclick="closeActiveMobileWindow('vault')">Home</button>
+            </div>
+            <div class="app-scroll-body">
+                <div id="vault-auth-screen" class="secure-auth-screen">
+                    <span style="font-size:24px;">🔑</span>
+                    <h3 style="font-size:14px; color:var(--accent-primary);">Storage Node Sealed</h3>
+                    <p style="font-size:10px; color:var(--text-muted);">Please provide master password signature verification metrics to proceed.</p>
+                    <div class="mobile-form-row" style="margin-top:6px;">
+                        <input type="password" id="vault-passphrase-input" class="input-field" placeholder="Vault Access Key">
+                        <button class="action-btn" onclick="unlockSystemVaultContainer()">Unlock</button>
+                    </div>
+                </div>
+                <div id="vault-explorer-view" style="display:none; flex-direction:column; gap:12px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:6px;">
+                        <span style="font-size:10px; font-weight:bold; color:#22c55e;">💾 LOCAL FILE ALLOCATION VIEW</span>
+                        <button class="action-btn" style="height:24px; font-size:9px; background:rgba(255,255,255,0.1);" onclick="relockVaultStorage()">Lock Block</button>
+                    </div>
+                    <div class="vault-grid" id="vault-file-explorer-grid"></div>
+                </div>
+            </div>
+        </div>
+
+        <div id="win-antivirus" class="mobile-window">
+            <div class="mobile-header">
+                <span class="mobile-header-title">GuardShield Virtual Antivirus</span>
+                <button class="back-btn" onclick="closeActiveMobileWindow('antivirus')">Home</button>
+            </div>
+            <div class="app-scroll-body">
+                <div class="settings-card" style="text-align: center; padding: 20px 10px;">
+                    <span style="font-size:40px; display:block; margin-bottom:10px;">🛡️</span>
+                    <h3 style="font-size:15px; color:var(--accent-primary);" id="av-status-headline">System Shield Active</h3>
+                    <p style="font-size:11px; color:var(--text-muted); margin-bottom:12px;" id="av-status-description">Sandbox real-time scanner ready to evaluate threats inside your local memory blocks.</p>
+                    <div style="display:flex; gap:6px; justify-content:center;">
+                        <button class="action-btn" style="background:#22c55e;" onclick="triggerAntivirusSystemScan('quick')">Quick Check</button>
+                        <button class="action-btn" style="background:var(--accent-secondary);" onclick="triggerAntivirusSystemScan('deep')">Deep Matrix Audit</button>
+                    </div>
+                </div>
+                
+                <div id="av-progress-box" style="display:none;" class="settings-card">
+                    <div style="display:flex; justify-content:space-between; font-size:10px; margin-bottom:4px;">
+                        <span id="av-scan-type-lbl">Scanning memory registers...</span>
+                        <span id="av-scan-pct-lbl">0%</span>
+                    </div>
+                    <div style="width:100%; height:6px; background:#111; border-radius:3px; overflow:hidden;">
+                        <div id="av-scan-bar" style="width:0%; height:100%; background:var(--accent-primary); transition: width 0.1s linear;"></div>
+                    </div>
+                    <span id="av-current-file-lbl" style="font-size:10px; color:var(--text-muted); margin-top:4px; display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Initialising thread pipelines...</span>
+                </div>
+
+                <div class="settings-card">
+                    <span style="font-size:11px; font-weight:700; color:var(--accent-secondary); display:block; margin-bottom:4px;">Threat Scanning Ledger Logs</span>
+                    <div id="av-log-terminal" style="background:#000; padding:10px; border-radius:6px; font-family:monospace; font-size:10px; color:#6ee7b7; min-height:110px; max-height:160px; overflow-y:auto; line-height:1.4;">
+                        [SYSTEM] GuardShield Engine v4.26 running.<br>
+                        [SYSTEM] Signature update version: DB-984.103 [OK]<br>
+                        [SYSTEM] Awaiting target action command string...
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="win-settings" class="mobile-window">
+            <div class="mobile-header">
+                <span class="mobile-header-title">System Control Subpanel</span>
+                <button class="back-btn" onclick="closeActiveMobileWindow('settings')">Home</button>
+            </div>
+            <div class="app-scroll-body">
+                <div id="settings-gate-stage1" class="secure-auth-screen" style="max-width:100%;">
+                    <div style="width:100%; display:flex; flex-direction:column; gap:6px;">
+                        <span style="font-size:9px; color:var(--accent-primary); font-weight:bold;">CHALLENGE ENTRY SIGNATURE REQUIRED</span>
+                        <div class="mobile-form-row">
+                            <input type="password" id="settings-pin-entry" class="input-field" placeholder="Access Token Entry">
+                            <button class="action-btn" onclick="verifySettingsTier1Pin()">Unlock Settings Panel</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="settings-core-view" style="display:none; flex-direction:column; gap:12px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:6px;">
+                        <span style="font-size:10px; font-weight:bold; color:#22c55e;">⚙️ GLOBAL ENVIRONMENTAL VARIABLES</span>
+                        <button class="action-btn" style="height:26px; font-size:9px; background:rgba(255,255,255,0.1);" onclick="relockSettingsAppEngine()">Lock Configuration</button>
+                    </div>
+                    <div class="sidebar-layout">
+                        <div class="settings-card">
+                            <span style="font-size:11px; font-weight:700; color:var(--accent-primary);">1. Wallpaper Environment Profile</span>
+                            <span style="font-size:10px; color:var(--text-muted);">Select active desktop matrix backing canvas:</span>
+                            <div class="wallpaper-preview-grid">
+                                <div class="wp-box active" id="wp-preset-1" style="background: radial-gradient(circle at 50% 50%, rgba(10, 8, 20, 0.9) 0%, rgba(3, 2, 8, 1) 100%);" onclick="changeSystemDesktopWallpaper('preset1')"></div>
+                                <div class="wp-box" id="wp-preset-2" style="background: linear-gradient(135deg, #1e3a8a 0%, #0f172a 100%);" onclick="changeSystemDesktopWallpaper('preset2')"></div>
+                                <div class="wp-box" id="wp-preset-3" style="background: linear-gradient(135deg, #581c87 0%, #1e1b4b 100%);" onclick="changeSystemDesktopWallpaper('preset3')"></div>
+                                <div class="wp-box" id="wp-custom-preview" style="background: #222; display:flex; align-items:center; justify-content:center; font-size:14px;" onclick="document.getElementById('wallpaper-file-input').click()">📁</div>
+                            </div>
+                            <input type="file" id="wallpaper-file-input" accept="image/*" style="display:none;" onchange="handleCustomWallpaperUpload(this)">
+                        </div>
+
+                        <div class="settings-card">
+                            <span style="font-size:11px; font-weight:700; color:var(--accent-secondary);">2. Edit Administration Tokens</span>
+                            <div style="display:flex; flex-direction:column; gap:6px; margin-top:4px;">
+                                <input type="password" id="set-pin-1" class="input-field shrunk-input" placeholder="New Master Pin (Tier 1)">
+                                <input type="password" id="set-pin-2" class="input-field shrunk-input" placeholder="New 2nd-Tier Phrase Factor">
+                                <button class="action-btn shrunk-btn" onclick="commitAdvancedSecurityParameters()">Overwrite Master Matrix Keys</button>
+                            </div>
+                        </div>
+
+                        <div class="settings-card">
+                            <span style="font-size:11px; font-weight:700; color:#fbbf24;">3. Interface Control Bus Switches</span>
+                            <div class="settings-toggle-row">
+                                <span style="font-size:10px; color:var(--text-main);">Render Virtual Touchscreen D-Pad Controls</span>
+                                <label class="switch">
+                                    <input type="checkbox" id="setting-toggle-dpad" checked onchange="toggleVirtualDpadDisplay(this.checked)">
+                                    <span class="slider"></span>
+                                </label>
+                            </div>
+                            <div class="settings-toggle-row">
+                                <span style="font-size:10px; color:var(--text-main);">Use Satellite GIS Imagery Layer</span>
+                                <label class="switch">
+                                    <input type="checkbox" id="setting-toggle-map" onchange="toggleMapImagerySource(this.checked)">
+                                    <span class="slider"></span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="settings-card" style="border: 1px dashed #ef4444; background: rgba(239,68,68,0.03);">
+                            <span style="font-size:11px; font-weight:700; color:#f87171;">⚠️ 4. Core System Recovery Diagnostics</span>
+                            <span style="font-size:10px; color:var(--text-muted); display:block; margin-bottom:4px;">Wipe all virtual allocations, local databases, customized wallpaper arrays and master seed keys to factory default profile parameters.</span>
+                            <button class="action-btn shrunk-btn" style="background:#ef4444; color:#fff;" onclick="executeSystemMasterFactoryReset()">Format & Reset Local Environment Node</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="mobile-dock">
+            <div class="power-container">
+                <button class="power-btn power-shutdown" onclick="triggerPowerOption('shutdown')" title="Shutdown">🛑</button>
+                <button class="power-btn power-sleep" onclick="triggerPowerOption('sleep')" title="Sleep">🌙</button>
+                <button class="power-btn power-restart" onclick="triggerPowerOption('restart')" title="Restart">🔄</button>
+            </div>
+            <div class="dock-item" onclick="lockSystemHardware()">🔒</div>
+            <div class="taskbar-clock">
+                <span id="taskbar-clock-display">00:00</span>
+            </div>
+        </div>
+
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // System State Architecture Models & Volatile Space Mapping Configurations
+        const StorageState = {
+            systemPin: '0000',
+            systemTier2Key: 'secure', // Re-established Tier 2 Security Parameter Default
+            permanentSecretOverride: '3v^P*m8R#bX!9kL$qP2',
+            failedAttemptsCount: 0,
+            lockoutExpiryTime: 0,
+            isPermanentlyLocked: false,
+            settingsTier1Passed: false,
+            activeGame: null,
+            useSatelliteTiles: false,
+            touchGamepadEnabled: true,
+            paint10Zoom: 1.0,
+            paint3DZoom: 1.0
+        };
+
+        let VirtualFileSystem = [];
+        let NotesFileSystem = [];
+        let currentActiveAssetUrls = { video: null, audio: null };
+
+        function bootstrapLocalStorageSubsystems() {
+            try {
+                if (localStorage.getItem('omni_vfs')) {
+                    VirtualFileSystem = JSON.parse(localStorage.getItem('omni_vfs'));
+                } else {
+                    VirtualFileSystem = [
+                        { id: 'sample_1', name: 'Identity_Vector.png', type: 'painting', data: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><rect width="100" height="100" fill="%2300f2fe"/><text x="10" y="50" fill="black">SECURED</text></svg>' }
+                    ];
+                    localStorage.setItem('omni_vfs', JSON.stringify(VirtualFileSystem));
+                }
+
+                if (localStorage.getItem('omni_notes')) {
+                    NotesFileSystem = JSON.parse(localStorage.getItem('omni_notes'));
+                } else {
+                    NotesFileSystem = [
+                        { id: 'n1', title: 'Security Status', body: 'Encryption parameter allocation successfully initialized.' }
+                    ];
+                    localStorage.setItem('omni_notes', JSON.stringify(NotesFileSystem));
+                }
+
+                if (localStorage.getItem('omni_sec_pin')) StorageState.systemPin = localStorage.getItem('omni_sec_pin');
+                if (localStorage.getItem('omni_sec_t2')) StorageState.systemTier2Key = localStorage.getItem('omni_sec_t2');
+                if (localStorage.getItem('omni_fail_count')) StorageState.failedAttemptsCount = parseInt(localStorage.getItem('omni_fail_count')) || 0;
+                if (localStorage.getItem('omni_perm_lock') === 'true') StorageState.isPermanentlyLocked = true;
+            } catch(e) {
+                console.warn("VFS local isolation layer active. Volatile tracking mode running.", e);
+            }
+        }
+        bootstrapLocalStorageSubsystems();
+
+        function syncVirtualFileSystemToCache() {
+            try { localStorage.setItem('omni_vfs', JSON.stringify(VirtualFileSystem)); } catch(e) {}
+        }
+        function syncNotesFileSystemToCache() {
+            try { localStorage.setItem('omni_notes', JSON.stringify(NotesFileSystem)); } catch(e) {}
+        }
+
+        let globalLeafletMapInstance = null;
+        let mapTileLayerReference = null;
+
+        function startSystemClock() {
+            const syncTime = () => {
+                const now = new Date();
+                document.getElementById('lock-time-display').innerText = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                document.getElementById('taskbar-clock-display').innerText = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                document.getElementById('lock-date-display').innerText = now.toLocaleDateString([], { weekday: 'long', month: 'short', day: 'numeric' });
+                
+                // Real-time calculation monitoring for temporary security locks
+                evaluateLockscreenTimerRestrictions();
+            };
+            syncTime();
+            setInterval(syncTime, 1000);
+        }
+        startSystemClock();
+
+        function lockSystemHardware() {
+            document.getElementById('lock-screen').style.display = 'flex';
+            evaluateLockscreenStateLayout();
+            relockVaultStorage();
+            relockSettingsAppEngine();
+        }
+
+        function evaluateLockscreenStateLayout() {
+            if (StorageState.isPermanentlyLocked || StorageState.failedAttemptsCount > 10) {
+                StorageState.isPermanentlyLocked = true;
+                try { localStorage.setItem('omni_perm_lock', 'true'); } catch(e){}
+                document.getElementById('lock-stage-standard').style.display = 'none';
+                document.getElementById('lock-stage-tier2').style.display = 'none';
+                document.getElementById('lock-stage-permanent').style.display = 'flex';
+            } else {
+                // If standard phase has not been broken, keep checking standard restriction timeouts
+                evaluateLockscreenTimerRestrictions();
+            }
+        }
+
+        function evaluateLockscreenTimerRestrictions() {
+            if (StorageState.isPermanentlyLocked) return;
+            if (document.getElementById('lock-stage-tier2').style.display === 'flex') return; // Bypass timer layout check if actively processing tier-2
+            
+            const rightNow = Date.now();
+            const banner = document.getElementById('lockout-timer-banner');
+            const container = document.getElementById('lock-input-container');
+            const promptLbl = document.getElementById('lock-prompt-lbl');
+
+            if (rightNow < StorageState.lockoutExpiryTime) {
+                let itemsLeft = Math.ceil((StorageState.lockoutExpiryTime - rightNow) / 1000);
+                banner.style.display = 'block';
+                banner.innerText = `SECURITY TIMEOUT ACTIVE: TRY AGAIN IN ${itemsLeft}s`;
+                container.style.opacity = '0.3';
+                document.getElementById('lock-pin-input').disabled = true;
+                document.getElementById('lock-submit-btn').disabled = true;
+            } else {
+                banner.style.display = 'none';
+                container.style.opacity = '1';
+                document.getElementById('lock-pin-input').disabled = false;
+                document.getElementById('lock-submit-btn').disabled = false;
+                document.getElementById('lock-stage-standard').style.display = 'flex';
+                
+                if (StorageState.failedAttemptsCount > 0) {
+                    promptLbl.innerText = `ATTEMPTS FAILED: ${StorageState.failedAttemptsCount} (MAX: 10)`;
+                    promptLbl.style.color = '#ff8a80';
+                } else {
+                    promptLbl.innerText = "ENTER OS GATEWAY ACCESS PIN";
+                    promptLbl.style.color = 'var(--accent-primary)';
+                }
+            }
+        }
+
+        function processLockscreenAuthenticationAttempt() {
+            if (Date.now() < StorageState.lockoutExpiryTime) return;
+
+            const inputField = document.getElementById('lock-pin-input');
+            const proposedValue = inputField.value;
+
+            if (proposedValue === StorageState.systemPin) {
+                // Tier 1 Validation Success -> Promote to Tier 2 Challenge
+                document.getElementById('lock-stage-standard').style.display = 'none';
+                document.getElementById('lock-stage-tier2').style.display = 'flex';
+                inputField.value = '';
+            } else {
+                StorageState.failedAttemptsCount++;
+                try { localStorage.setItem('omni_fail_count', StorageState.failedAttemptsCount.toString()); } catch(e){}
+                inputField.value = '';
+
+                if (StorageState.failedAttemptsCount === 5) {
+                    StorageState.lockoutExpiryTime = Date.now() + 60000; // 1-minute tracking ban
+                    alert("SECURITY ALERT: 5 incorrect attempts recorded. System interface locked for 1 minute.");
+                } else if (StorageState.failedAttemptsCount === 10) {
+                    StorageState.lockoutExpiryTime = Date.now() + 120000; // 2-minute tracking ban
+                    alert("SECURITY ALERT: 10 incorrect attempts recorded. System interface locked for 2 minutes.");
+                } else if (StorageState.failedAttemptsCount > 10) {
+                    StorageState.isPermanentlyLocked = true;
+                    try { localStorage.setItem('omni_perm_lock', 'true'); } catch(e){}
+                    alert("CRITICAL VIOLATION: Maximum clearance failure threshold hit. Permanent hardware protection activated.");
+                } else {
+                    alert(`ACCESS DENIED: Credentials mismatch. Failed attempts: ${StorageState.failedAttemptsCount}/10`);
+                }
+                evaluateLockscreenStateLayout();
+            }
+        }
+
+        function processTier2AuthenticationValidation() {
+            const tier2Field = document.getElementById('lock-tier2-input');
+            if (tier2Field.value === StorageState.systemTier2Key) {
+                // Successfully satisfied full authentication cascade parameters
+                StorageState.failedAttemptsCount = 0;
+                StorageState.lockoutExpiryTime = 0;
+                try { localStorage.setItem('omni_fail_count', '0'); } catch(e){}
+                
+                document.getElementById('lock-screen').style.display = 'none';
+                document.getElementById('lock-stage-tier2').style.display = 'none';
+                tier2Field.value = '';
+            } else {
+                alert("ACCESS DENIED: Second-tier factor token authentication failed. Resetting sequence track iteration.");
+                tier2Field.value = '';
+                
+                // Drop back to standard validation tracking to force clean cycle checks
+                document.getElementById('lock-stage-tier2').style.display = 'none';
+                document.getElementById('lock-stage-standard').style.display = 'flex';
+                evaluateLockscreenTimerRestrictions();
+            }
+        }
+
+        function processPermanentOverrideKeyVerification() {
+            const recoveryInput = document.getElementById('lock-permanent-override-input');
+            if (recoveryInput.value === StorageState.permanentSecretOverride) {
+                // Reset all tracking configurations completely to default profile parameters
+                StorageState.isPermanentlyLocked = false;
+                StorageState.failedAttemptsCount = 0;
+                StorageState.lockoutExpiryTime = 0;
+                try {
+                    localStorage.setItem('omni_perm_lock', 'false');
+                    localStorage.setItem('omni_fail_count', '0');
+                } catch(e){}
+                
+                alert("RECOVERY SUCCESS: Security layout metrics cleared. Protection standard profile loaded.");
+                recoveryInput.value = '';
+                evaluateLockscreenStateLayout();
+            } else {
+                alert("RECOVERY ERROR: Cryptographic structural signature incorrect. Hard lockout persistent.");
+                recoveryInput.value = '';
+            }
+        }
+
+        function launchMobileApp(appId) {
+            document.querySelectorAll('.mobile-window').forEach(w => w.classList.remove('active'));
+            const targetWin = document.getElementById(`win-${appId}`);
+            if (targetWin) {
+                targetWin.classList.add('active');
+                if (appId === 'maps') {
+                    setTimeout(() => {
+                        initializeLeafletMapCanvas();
+                        if (globalLeafletMapInstance) {
+                            globalLeafletMapInstance.invalidateSize();
+                        }
+                    }, 250);
+                } else if (appId === 'paint10') {
+                    setTimeout(initPaint10AppWorkspace, 200);
+                } else if (appId === 'paint3d') {
+                    setTimeout(initPaint3DAppEngine, 200);
+                } else if (appId === 'notes') {
+                    renderNotesListView();
+                }
+            }
+        }
+
+        function closeActiveMobileWindow(appId) {
+            const targetWin = document.getElementById(`win-${appId}`);
+            if (targetWin) targetWin.classList.remove('active');
+            if (appId === 'games') closeActiveArcadeGame();
+        }
+
+        // Media Allocation System Tracking Collectors
+        function loadLocalVideoAsset(input) {
+            if (input.files && input.files[0]) {
+                if (currentActiveAssetUrls.video) {
+                    URL.revokeObjectURL(currentActiveAssetUrls.video);
+                }
+                const file = input.files[0];
+                const videoEl = document.getElementById('native-core-video');
+                currentActiveAssetUrls.video = URL.createObjectURL(file);
+                videoEl.src = currentActiveAssetUrls.video;
+                videoEl.play();
+            }
+        }
+
+        function loadLocalAudioAsset(input) {
+            if (input.files && input.files[0]) {
+                if (currentActiveAssetUrls.audio) {
+                    URL.revokeObjectURL(currentActiveAssetUrls.audio);
+                }
+                const file = input.files[0];
+                const audioEl = document.getElementById('native-core-audio');
+                document.getElementById('audio-track-title').innerText = file.name;
+                currentActiveAssetUrls.audio = URL.createObjectURL(file);
+                audioEl.src = currentActiveAssetUrls.audio;
+                audioEl.play();
+                document.getElementById('music-vinyl-disc').classList.add('spinning');
+            }
+        }
+
+        function toggleAudioPlayback() {
+            const audioEl = document.getElementById('native-core-audio');
+            const disc = document.getElementById('music-vinyl-disc');
+            if (!audioEl.src) return;
+            if (audioEl.paused) {
+                audioEl.play();
+                disc.classList.add('spinning');
+            } else {
+                audioEl.pause();
+                disc.classList.remove('spinning');
+            }
+        }
+
+        // Power Matrix Management Modules
+        function triggerPowerOption(option) {
+            const screen = document.getElementById('system-power-screen');
+            const msg = document.getElementById('power-screen-msg');
+            const loader = document.getElementById('power-loader');
+            const powerBtn = document.getElementById('system-power-on-btn');
+            
+            powerBtn.style.display = 'none';
+            loader.style.display = 'block';
+
+            if (option === 'shutdown') {
+                if(confirm("Confirm system power shutdown operational sequence?")) {
+                    screen.style.display = 'flex';
+                    msg.innerText = "Flushing infrastructure core registers securely...";
+                    setTimeout(() => {
+                        msg.innerText = "System Halted. Core registers cleared. System power is currently OFF.";
+                        loader.style.display = 'none';
+                        powerBtn.style.display = 'block';
+                    }, 2000);
+                }
+            } else if (option === 'sleep') {
+                screen.style.display = 'flex';
+                msg.innerText = "Suspending active register states to memory cluster...";
+                setTimeout(() => {
+                    msg.innerText = "System Sleep Mode Active. Low energy profile running.";
+                    loader.style.display = 'none';
+                    powerBtn.style.display = 'block';
+                    powerBtn.innerText = "🔌 Wake / Power On System";
+                }, 1200);
+            } else if (option === 'restart') {
+                if(confirm("Reboot physical layout framework core?")) {
+                    screen.style.display = 'flex';
+                    msg.innerText = "Refreshing system operational drivers...";
+                    setTimeout(() => {
+                        screen.style.display = 'none';
+                        lockSystemHardware();
+                    }, 2000);
+                }
+            }
+        }
+
+        function bootSystemUpFromHalt() {
+            const screen = document.getElementById('system-power-screen');
+            const msg = document.getElementById('power-screen-msg');
+            const loader = document.getElementById('power-loader');
+            const powerBtn = document.getElementById('system-power-on-btn');
+
+            powerBtn.style.display = 'none';
+            loader.style.display = 'block';
+            msg.innerText = "Initializing master physical layout and security sub-modules...";
+
+            setTimeout(() => {
+                screen.style.display = 'none';
+                lockSystemHardware();
+            }, 1500);
+        }
+
+        function processUniversalEngineSearch() {
+            let target = document.getElementById('universal-browser-search-box').value.trim();
+            if(!/^https?:\/\//i.test(target)) { target = 'https://' + target; }
+            
+            const mount = document.getElementById('browser-viewport-mount');
+            mount.innerHTML = `<iframe id="browser-live-frame" style="width:100%; height:100%; border:none; background:#fff;"></iframe>`;
+            
+            const frame = document.getElementById('browser-live-frame');
+            
+            let checkFailedFrame = setTimeout(() => {
+                mount.innerHTML = `
+                    <div class="browser-fallback-container">
+                        <h3>⚠️ Isolation Rules Met</h3>
+                        <p style="font-size:11px; color:var(--text-muted); max-width:260px;">The resource properties prevent embedded frames. Use external parameters:</p>
+                        <button class="action-btn" onclick="window.open('${target}', '_blank')">Launch External Terminal</button>
+                    </div>`;
+            }, 1500);
+
+            frame.onload = () => { clearTimeout(checkFailedFrame); };
+            frame.src = target;
+        }
+
+        function initializeLeafletMapCanvas() {
+            if (globalLeafletMapInstance === null) {
+                globalLeafletMapInstance = L.map('spatial-map-canvas', { zoomControl: false }).setView([28.6139, 77.2090], 10);
+                mapTileLayerReference = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    maxZoom: 19,
+                    attribution: '&copy; OpenStreetMap'
+                }).addTo(globalLeafletMapInstance);
+                L.control.zoom({ position: 'bottomright' }).addTo(globalLeafletMapInstance);
+            } else {
+                globalLeafletMapInstance.invalidateSize();
+            }
+        }
+
+        function locateSpatialTargetAddress() {
+            const raw = document.getElementById('shrunk-map-search').value;
+            const parts = raw.split(',');
+            if (parts.length === 2) {
+                const lat = parseFloat(parts[0].trim());
+                const lon = parseFloat(parts[1].trim());
+                if (!isNaN(lat) && !isNaN(lon) && globalLeafletMapInstance) {
+                    globalLeafletMapInstance.setView([lat, lon], 13);
+                    L.marker([lat, lon]).addTo(globalLeafletMapInstance).bindPopup(`Node Location Coordinates: ${lat}, ${lon}`).openPopup();
+                    globalLeafletMapInstance.invalidateSize();
+                }
+            } else {
+                alert("Coordinates pattern required: latitude, longitude");
+            }
+        }
+
+        function getCurrentPositionSimulated() {
+            if (globalLeafletMapInstance) {
+                globalLeafletMapInstance.setView([28.6139, 77.2090], 12);
+                L.marker([28.6139, 77.2090]).addTo(globalLeafletMapInstance).bindPopup("Current Synced Frame GPS").openPopup();
+                globalLeafletMapInstance.invalidateSize();
+            }
+        }
+
+        // Notes Allocation Framework
+        let activeEditingNoteId = null;
+        function renderNotesListView() {
+            document.getElementById('notes-list-wrapper').style.display = 'flex';
+            document.getElementById('notes-edit-wrapper').style.display = 'none';
+            const box = document.getElementById('notes-container-items');
+            box.innerHTML = '';
+            NotesFileSystem.forEach(n => {
+                const item = document.createElement('div');
+                item.className = 'notes-list-item';
+                item.innerHTML = `<div style="display:flex; flex-direction:column; flex:1;" onclick="openNotesEditor('${n.id}')">
+                    <span style="font-size:12px; font-weight:bold; color:var(--accent-primary);">${n.title}</span>
+                    <span style="font-size:10px; color:var(--text-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:180px;">${n.body}</span>
+                </div>
+                <button class="action-btn" style="height:24px; padding:0 8px; background:#e11d48;" onclick="purgeNoteRecord('${n.id}')">❌</button>`;
+                box.appendChild(item);
+            });
+        }
+
+        function openNotesEditor(id) {
+            activeEditingNoteId = id;
+            document.getElementById('notes-list-wrapper').style.display = 'none';
+            document.getElementById('notes-edit-wrapper').style.display = 'flex';
+            if(id) {
+                const matched = NotesFileSystem.find(n => n.id === id);
+                document.getElementById('note-title-input').value = matched.title;
+                document.getElementById('note-body-input').value = matched.body;
+            } else {
+                document.getElementById('note-title-input').value = '';
+                document.getElementById('note-body-input').value = '';
+            }
+        }
+
+        function saveActiveNoteData() {
+            const title = document.getElementById('note-title-input').value.trim() || 'Untitled Allocation Record';
+            const body = document.getElementById('note-body-input').value.trim() || '';
+            if(activeEditingNoteId) {
+                const node = NotesFileSystem.find(n => n.id === activeEditingNoteId);
+                if(node) { node.title = title; node.body = body; }
+            } else {
+                NotesFileSystem.push({ id: 'n_' + Date.now(), title, body });
+            }
+            syncNotesFileSystemToCache();
+            renderNotesListView();
+        }
+        function exitNotesEditorView() { renderNotesListView(); }
+        function purgeNoteRecord(id) {
+            const idx = NotesFileSystem.findIndex(n => n.id === id);
+            if(idx > -1) { 
+                NotesFileSystem.splice(idx, 1); 
+                syncNotesFileSystemToCache();
+                renderNotesListView(); 
+            }
+        }
+
+        // Canvas Rendering Architecture Subunits
+        let w10Canvas, w10Ctx;
+        let w10PaintState = { drawing: false, tool: 'pencil', lastX: 0, lastY: 0, buffer: null };
+        function initPaint10AppWorkspace() {
+            w10Canvas = document.getElementById('w10-paint-canvas');
+            w10Ctx = w10Canvas.getContext('2d', { willReadFrequently: true });
+            w10Ctx.fillStyle = '#ffffff';
+            w10Ctx.fillRect(0, 0, w10Canvas.width, w10Canvas.height);
+            w10PaintState.buffer = w10Ctx.getImageData(0, 0, w10Canvas.width, w10Canvas.height);
+            
+            w10Canvas.onmousedown = startW10DrawAction;
+            w10Canvas.onmousemove = executeW10DrawAction;
+            w10Canvas.onmouseup = () => w10PaintState.drawing = false;
+            w10Canvas.onmouseleave = () => w10PaintState.drawing = false;
+
+            w10Canvas.ontouchstart = (e) => { const t = e.touches[0]; startW10DrawAction(t); e.preventDefault(); };
+            w10Canvas.ontouchmove = (e) => { const t = e.touches[0]; executeW10DrawAction(t); e.preventDefault(); };
+            w10Canvas.ontouchend = () => w10PaintState.drawing = false;
+
+            // Initialize zoom components based on slider defaults
+            adjustPaint10ZoomFromSlider(document.getElementById('w10-zoom-slider').value);
+        }
+
+        function adjustPaint10ZoomFromSlider(sliderVal) {
+            let parsedScale = parseInt(sliderVal) / 100;
+            StorageState.paint10Zoom = parsedScale;
+            w10Canvas.style.transform = `scale(${parsedScale})`;
+            document.getElementById('w10-zoom-lbl').innerText = `${sliderVal}%`;
+        }
+
+        function setW10ToolMode(mode) {
+            w10PaintState.tool = mode;
+            document.querySelectorAll('.w10-tool-btn').forEach(btn => btn.classList.remove('active'));
+            const el = document.getElementById(`w10tool-${mode}`);
+            if(el) el.classList.add('active');
+        }
+
+        function clearW10CanvasWorkspace() {
+            if(!w10Ctx) return;
+            w10Ctx.beginPath();
+            w10Ctx.fillStyle = '#ffffff';
+            w10Ctx.fillRect(0, 0, w10Canvas.width, w10Canvas.height);
+            w10PaintState.buffer = w10Ctx.getImageData(0, 0, w10Canvas.width, w10Canvas.height);
+        }
+
+        function startW10DrawAction(e) {
+            w10PaintState.drawing = true;
+            const rect = w10Canvas.getBoundingClientRect();
+            w10PaintState.lastX = ((e.clientX || e.pageX) - rect.left) / StorageState.paint10Zoom;
+            w10PaintState.lastY = ((e.clientY || e.pageY) - rect.top) / StorageState.paint10Zoom;
+            w10PaintState.buffer = w10Ctx.getImageData(0, 0, w10Canvas.width, w10Canvas.height);
+            if(w10PaintState.tool === 'bucket') {
+                executeW10FloodFill(Math.floor(w10PaintState.lastX), Math.floor(w10PaintState.lastY), document.getElementById('w10-paint-color').value);
+                w10PaintState.drawing = false;
+            }
+        }
+
+        function executeW10DrawAction(e) {
+            if(!w10PaintState.drawing) return;
+            const rect = w10Canvas.getBoundingClientRect();
+            const currX = ((e.clientX || e.pageX) - rect.left) / StorageState.paint10Zoom;
+            const currY = ((e.clientY || e.pageY) - rect.top) / StorageState.paint10Zoom;
+            const targetColor = document.getElementById('w10-paint-color').value;
+            w10Ctx.strokeStyle = targetColor;
+            w10Ctx.fillStyle = targetColor;
+            w10Ctx.lineWidth = document.getElementById('w10-brush-size').value;
+            w10Ctx.lineCap = 'round';
+            w10Ctx.lineJoin = 'round';
+
+            if(['pencil', 'brush', 'eraser'].includes(w10PaintState.tool)) {
+                if(w10PaintState.tool === 'eraser') w10Ctx.strokeStyle = '#ffffff';
+                w10Ctx.lineWidth = w10PaintState.tool === 'pencil' ? 2 : w10Ctx.lineWidth;
+                w10Ctx.beginPath();
+                w10Ctx.moveTo(w10PaintState.lastX, w10PaintState.lastY);
+                w10Ctx.lineTo(currX, currY);
+                w10Ctx.stroke();
+                w10PaintState.lastX = currX;
+                w10PaintState.lastY = currY;
+            } else {
+                w10Ctx.putImageData(w10PaintState.buffer, 0, 0);
+                w10Ctx.beginPath();
+                if(w10PaintState.tool === 'line') {
+                    w10Ctx.moveTo(w10PaintState.lastX, w10PaintState.lastY);
+                    w10Ctx.lineTo(currX, currY);
+                    w10Ctx.stroke();
+                } else if(w10PaintState.tool === 'rect') {
+                    w10Ctx.strokeRect(w10PaintState.lastX, w10PaintState.lastY, currX - w10PaintState.lastX, currY - w10PaintState.lastY);
+                } else if(w10PaintState.tool === 'circle') {
+                    let r = Math.sqrt(Math.pow(currX - w10PaintState.lastX, 2) + Math.pow(currY - w10PaintState.lastY, 2));
+                    w10Ctx.arc(w10PaintState.lastX, w10PaintState.lastY, r, 0, 2*Math.PI);
+                    w10Ctx.stroke();
+                }
+            }
+        }
+
+        function executeW10FloodFill(startX, startY, fillHex) {
+            let imgData = w10Ctx.getImageData(0,0,w10Canvas.width,w10Canvas.height);
+            let data = imgData.data;
+            let w = w10Canvas.width, h = w10Canvas.height;
+            let targetColor = hexToRgbComponents(fillHex);
+            let idx = (startY * w + startX) * 4;
+            let startR = data[idx], startG = data[idx+1], startB = data[idx+2];
+            if(Math.abs(startR - targetColor.r)<10 && Math.abs(startG - targetColor.g)<10 && Math.abs(startB - targetColor.b)<10) return;
+            let queue = [[startX, startY]];
+            while(queue.length > 0) {
+                let cell = queue.pop();
+                let cx = cell[0], cy = cell[1];
+                let cidx = (cy * w + cx) * 4;
+                if(colorsMatch([data[cidx], data[cidx+1], data[cidx+2]], [startR, startG, startB])) {
+                    data[cidx] = targetColor.r; data[cidx+1] = targetColor.g; data[cidx+2] = targetColor.b; data[cidx+3] = 255;
+                    if(cx > 0) queue.push([cx - 1, cy]);
+                    if(cx < w - 1) queue.push([cx + 1, cy]);
+                    if(cy > 0) queue.push([cx, cy - 1]);
+                    if(cy < h - 1) queue.push([cx, cy + 1]);
+                }
+            }
+            w10Ctx.putImageData(imgData, 0, 0);
+        }
+
+        function hexToRgbComponents(hex) {
+            let c = hex.substring(1);
+            return { r: parseInt(c.substring(0,2), 16), g: parseInt(c.substring(2,4), 16), b: parseInt(c.substring(4,6), 16) };
+        }
+        function colorsMatch(c1, c2) { return Math.abs(c1[0]-c2[0])<15 && Math.abs(c1[1]-c2[1])<15 && Math.abs(c1[2]-c2[2])<15; }
+
+        function saveW10CanvasToVault() {
+            VirtualFileSystem.push({ id: 'w10_' + Date.now(), name: `SketchAllocation_${VirtualFileSystem.length}.png`, type: 'painting', data: w10Canvas.toDataURL() });
+            syncVirtualFileSystemToCache();
+            alert("File system records updated.");
+        }
+
+        // Interactive Pseudo-3D Layer Vector Modeling Engine
+        let p3dCanvas, p3dCtx;
+        let p3dState = { primitive: 'cube', items: [] };
+        function initPaint3DAppEngine() {
+            p3dCanvas = document.getElementById('p3d-render-canvas');
+            p3dCtx = p3dCanvas.getContext('2d');
+            p3dCanvas.width = 300;
+            p3dCanvas.height = 250;
+            p3dCanvas.onmousedown = executePaint3DCanvasClick;
+            p3dCanvas.ontouchstart = (e) => { const t = e.touches[0]; executePaint3DCanvasClick(t); e.preventDefault(); };
+            document.getElementById('paint3d-canvas-container').onwheel = function(e) { e.preventDefault(); let direction = e.deltaY < 0 ? 0.1 : -0.1; adjustPaint3DZoomScale(direction); };
+            StorageState.paint3DZoom = 1.0;
+            updatePaint3DVisualScaleMatrix();
+            renderPaint3DStudioWorkspace();
+        }
+
+        function adjustPaint3DZoomScale(delta) {
+            StorageState.paint3DZoom = Math.max(0.3, Math.min(4.0, StorageState.paint3DZoom + delta));
+            updatePaint3DVisualScaleMatrix();
+        }
+        function updatePaint3DVisualScaleMatrix() {
+            p3dCanvas.style.transform = `scale(${StorageState.paint3DZoom})`;
+            document.getElementById('p3d-zoom-lbl').innerText = `${Math.round(StorageState.paint3DZoom * 100)}%`;
+        }
+        function updateSelected3DPrimitive(val) { p3dState.primitive = val; }
+        function executePaint3DCanvasClick(e) {
+            const rect = p3dCanvas.getBoundingClientRect();
+            const clickX = ((e.clientX || e.pageX) - rect.left) / StorageState.paint3DZoom;
+            const clickY = ((e.clientY || e.pageY) - rect.top) / StorageState.paint3DZoom;
+            p3dState.items.push({ x: clickX, y: clickY, shape: p3dState.primitive, color: document.getElementById('p3d-brush-color').value, size: 40 });
+            renderPaint3DStudioWorkspace();
+        }
+
+        function renderPaint3DStudioWorkspace() {
+            p3dCtx.fillStyle = '#1e2022';
+            p3dCtx.fillRect(0,0,p3dCanvas.width,p3dCanvas.height);
+            p3dState.items.forEach(item => {
+                p3dCtx.fillStyle = item.color;
+                p3dCtx.strokeStyle = '#ffffff';
+                p3dCtx.lineWidth = 1.5;
+                if(item.shape === 'cube') {
+                    p3dCtx.fillRect(item.x - 20, item.y - 20, 40, 40);
+                    p3dCtx.strokeRect(item.x - 20, item.y - 20, 40, 40);
+                    p3dCtx.fillStyle = 'rgba(255,255,255,0.15)';
+                    p3dCtx.fillRect(item.x - 10, item.y - 30, 40, 40);
+                    p3dCtx.strokeRect(item.x - 10, item.y - 30, 40, 40);
+                } else if(item.shape === 'sphere') {
+                    p3dCtx.beginPath(); p3dCtx.arc(item.x, item.y, 22, 0, 2*Math.PI); p3dCtx.fill(); p3dCtx.stroke();
+                } else if(item.shape === 'cylinder') {
+                    p3dCtx.fillRect(item.x - item.size/2, item.y - item.size/2, item.size, item.size);
+                    p3dCtx.strokeRect(item.x - item.size/2, item.y - item.size/2, item.size, item.size);
+                    p3dCtx.fillStyle = 'rgba(0,0,0,0.15)'; p3dCtx.beginPath(); p3dCtx.ellipse(item.x, item.y - item.size/2, item.size/2, 6, 0, 0, 2*Math.PI); p3dCtx.fill(); p3dCtx.stroke();
+                } else if(item.shape === 'cone') {
+                    p3dCtx.beginPath(); p3dCtx.moveTo(item.x, item.y - item.size/2); p3dCtx.lineTo(item.x - item.size/2, item.y + item.size/2); p3dCtx.lineTo(item.x + item.size/2, item.y + item.size/2); p3dCtx.closePath(); p3dCtx.fill(); p3dCtx.stroke();
+                }
+            });
+        }
+        function clearPaint3DCanvasWorkspace() { p3dState.items = []; renderPaint3DStudioWorkspace(); }
+        function snapshotPaint3DToVault() {
+            VirtualFileSystem.push({ id: 'p3d_' + Date.now(), name: `MeshBlueprint_${VirtualFileSystem.length}.png`, type: 'painting', data: p3dCanvas.toDataURL() });
+            syncVirtualFileSystemToCache();
+            alert("Mesh generation parameters mapped to allocation storage.");
+        }
+
+        // Logic Input Handlers for Onboard Retro Entertainment Drivers
+        function sendHardwareDirectionInput(keyString) { if(window.gameInputRouterCallback) window.gameInputRouterCallback(keyString); }
+        window.addEventListener('keydown', function(e) {
+            if(!StorageState.activeGame) return;
+            if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space','Enter'].includes(e.key)) { e.preventDefault(); }
+            if(window.gameInputRouterCallback) window.gameInputRouterCallback(e.key);
+        });
+
+        function bootArcadeGame(gameType) {
+            document.getElementById('arcade-main-menu').style.display = 'none';
+            document.getElementById('arcade-viewport').style.display = 'flex';
+            StorageState.activeGame = gameType;
+            
+            // Collect the dynamic difficulty configuration parameter
+            StorageState.selectedDifficulty = document.getElementById('arcade-global-difficulty').value;
+            
+            toggleVirtualDpadDisplay(StorageState.touchGamepadEnabled);
+            const mount = document.getElementById('game-canvas-mount-point');
+            mount.innerHTML = '';
+            if(window.gameIntervalId) clearInterval(window.gameIntervalId);
+            
+            if(gameType === 'tictactoe') runTicTacToeEngine(mount);
+            else if(gameType === 'snake') runSnakeEngine(mount);
+            else if(gameType === 'pong') runVectorPongEngine(mount);
+            else if(gameType === 'catcher') runFruitCollectorEngine(mount);
+            else if(gameType === 'blockevade') runBlockEvadeEngine(mount);
+        }
+
+        function triggerActiveGameReplay() {
+            if (StorageState.activeGame) {
+                bootArcadeGame(StorageState.activeGame);
+            }
+        }
+
+        function closeActiveArcadeGame() {
+            if(window.gameIntervalId) clearInterval(window.gameIntervalId);
+            StorageState.activeGame = null;
+            document.getElementById('arcade-viewport').style.display = 'none';
+            document.getElementById('arcade-main-menu').style.display = 'flex';
+            document.getElementById('arcade-dpad-controller').style.display = 'none';
+        }
+
+        function runTicTacToeEngine(mount) {
+            let n = 3;
+            mount.innerHTML = `
+                <div class="ttt-controls">
+                    <select id="ttt-dim" class="p3d-select-input" style="height:28px;">
+                        <option value="3">3x3 Traditional Grid</option>
+                        <option value="4">4x4 Matrix Grid</option>
+                        <option value="5">5x5 Advanced Grid</option>
+                    </select>
+                    <button class="action-btn" style="height:28px;" id="ttt-init-btn">Initialize Board</button>
+                </div>
+                <div id="ttt-status-lbl" style="font-size:11px; margin-top:8px; color:var(--accent-primary);">Select layout mode</div>
+                <div id="ttt-board" class="ttt-board-container" style="grid-template-columns: repeat(3, 52px);"></div>
+            `;
+            let grid = [], gameRunning = true, playerSym = 'X', botSym = 'O';
+            const boardBox = document.getElementById('ttt-board');
+            const statusBox = document.getElementById('ttt-status-lbl');
+            
+            const initBoard = () => {
+                n = parseInt(document.getElementById('ttt-dim').value);
+                grid = Array(n*n).fill(' '); gameRunning = true; playerSym = 'X';
+                statusBox.innerText = `Player Turn [X] - Difficulty: ${StorageState.selectedDifficulty.toUpperCase()}`;
+                boardBox.style.gridTemplateColumns = `repeat(${n}, 52px)`;
+                boardBox.innerHTML = '';
+                for(let i=0; i<n*n; i++) {
+                    const sq = document.createElement('div');
+                    sq.className = 'ttt-square';
+                    sq.dataset.idx = i;
+                    sq.onclick = () => squareClickAction(i);
+                    boardBox.appendChild(sq);
+                }
+            };
+            
+            const checkWinCondition = (sym) => {
+                const checkLine = (cells) => cells.every(idx => grid[idx] === sym);
+                if(n === 3) {
+                    const lines = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+                    for(let l of lines) { if(checkLine(l)) return l; }
+                } else {
+                    for(let r=0; r<n; r++) {
+                        let rowCells = []; for(let c=0; c<n; c++) rowCells.push(r*n+c);
+                        if(grid[rowCells[0]]===sym && rowCells.every(i=>grid[i]===sym)) return rowCells;
+                    }
+                    for(let c=0; c<n; c++) {
+                        let colCells = []; for(let r=0; r<n; r++) colCells.push(r*n+c);
+                        if(grid[colCells[0]]===sym && colCells.every(i=>grid[i]===sym)) return colCells;
+                    }
+                }
+                return null;
+            };
+
+            const triggerBotAIResponseMove = () => {
+                if(!gameRunning) return;
+                statusBox.innerText = "Bot computing code vectors...";
+                
+                let calculationDelay = 500;
+                if (StorageState.selectedDifficulty === 'easy') calculationDelay = 800;
+                if (StorageState.selectedDifficulty === 'hard') calculationDelay = 200;
+
+                setTimeout(() => {
+                    let free = []; grid.forEach((v,i) => { if(v === ' ') free.push(i); });
+                    if(free.length === 0 || !gameRunning) return;
+                    
+                    let move;
+                    // Implement predictive AI blocker heuristics under hard difficulty limits
+                    if (StorageState.selectedDifficulty === 'hard' && n === 3) {
+                        let fallbackMove = null;
+                        for (let i = 0; i < grid.length; i++) {
+                            if (grid[i] === ' ') {
+                                grid[i] = 'X'; 
+                                if (checkWinCondition('X')) fallbackMove = i;
+                                grid[i] = ' '; 
+                            }
+                        }
+                        move = (fallbackMove !== null) ? fallbackMove : free[Math.floor(Math.random()*free.length)];
+                    } else {
+                        move = free[Math.floor(Math.random()*free.length)];
+                    }
+
+                    grid[move] = botSym;
+                    let el = boardBox.children[move]; el.innerText = botSym; el.classList.add('occupied');
+                    let winLine = checkWinCondition(botSym);
+                    if(winLine) {
+                        statusBox.innerText = "Defeat. Simulated logic match closed."; gameRunning = false;
+                        winLine.forEach(idx => boardBox.children[idx].classList.add('win-highlight'));
+                    } else if(grid.every(v => v !== ' ')) {
+                        statusBox.innerText = "No empty registers left."; gameRunning = false;
+                    } else {
+                        statusBox.innerText = "Player Turn [X]";
+                    }
+                }, calculationDelay);
+            };
+
+            const squareClickAction = (idx) => {
+                if(!gameRunning || grid[idx] !== ' ') return;
+                grid[idx] = playerSym;
+                let el = boardBox.children[idx]; el.innerText = playerSym; el.classList.add('occupied');
+                let winLine = checkWinCondition(playerSym);
+                if(winLine) {
+                    statusBox.innerText = "Target matrix sequence cleared."; gameRunning = false;
+                    winLine.forEach(i => boardBox.children[i].classList.add('win-highlight'));
+                } else if(grid.every(v => v !== ' ')) {
+                    statusBox.innerText = "No empty registers left."; gameRunning = false;
+                } else {
+                    triggerBotAIResponseMove();
+                }
+            };
+
+            document.getElementById('ttt-init-btn').onclick = initBoard;
+            initBoard();
+        }
+
+        function runSnakeEngine(mount) {
+            mount.innerHTML = `<canvas id="snakeCanvas" width="260" height="195" style="background:#0b0f12; border:1px solid #333; border-radius:6px;"></canvas>`;
+            const canvas = document.getElementById('snakeCanvas');
+            const ctx = canvas.getContext('2d');
+            let snake = [{x: 10, y: 10}], dx = 1, dy = 0, food = {x: 4, y: 4};
+            let score = 0;
+            
+            let frameVelocity = 150;
+            if (StorageState.selectedDifficulty === 'easy') frameVelocity = 220;
+            if (StorageState.selectedDifficulty === 'hard') frameVelocity = 80;
+
+            window.gameInputRouterCallback = (key) => {
+                if((key === 'ArrowUp' || key === 'w') && dy === 0) { dx = 0; dy = -1; }
+                if((key === 'ArrowDown' || key === 's') && dy === 0) { dx = 0; dy = 1; }
+                if((key === 'ArrowLeft' || key === 'a') && dx === 0) { dx = -1; dy = 0; }
+                if((key === 'ArrowRight' || key === 'd') && dx === 0) { dx = 1; dy = 0; }
+            };
+            window.gameIntervalId = setInterval(() => {
+                let head = {x: snake[0].x + dx, y: snake[0].y + dy};
+                if(head.x < 0 || head.x >= 20 || head.y < 0 || head.y >= 15) {
+                    alert("Bounds restriction exception. Score: " + score); closeActiveArcadeGame(); return;
+                }
+                snake.unshift(head);
+                if(head.x === food.x && head.y === food.y) {
+                    score += 10; food = {x: Math.floor(Math.random()*20), y: Math.floor(Math.random()*14)};
+                } else { snake.pop(); }
+                ctx.fillStyle = '#0b0f12'; ctx.fillRect(0,0,260,195);
+                ctx.fillStyle = '#00f2fe'; snake.forEach(s => ctx.fillRect(s.x*13, s.y*13, 12, 12));
+                ctx.fillStyle = '#ff007f'; ctx.fillRect(food.x*13, food.y*13, 12, 12);
+            }, frameVelocity);
+        }
+
+        function runVectorPongEngine(mount) {
+            mount.innerHTML = `<canvas id="pongCanvas" width="260" height="150" style="background:#0b0f12; border:1px solid #333;"><canvas>`;
+            const canvas = document.getElementById('pongCanvas'); const ctx = canvas.getContext('2d');
+            let p1 = 50, p2 = 50, bx = 130, by = 75;
+            
+            let bdx = 3, bdy = 2, cpuTrackingSpeed = 1.5;
+            if (StorageState.selectedDifficulty === 'easy') { bdx = 2; bdy = 1.2; cpuTrackingSpeed = 0.8; }
+            if (StorageState.selectedDifficulty === 'hard') { bdx = 5; bdy = 3.5; cpuTrackingSpeed = 3.0; }
+
+            window.gameInputRouterCallback = (key) => {
+                if(key === 'ArrowUp') p1 = Math.max(0, p1 - 14); if(key === 'ArrowDown') p1 = Math.min(110, p1 + 14);
+            };
+            window.gameIntervalId = setInterval(() => {
+                bx += bdx; by += bdy;
+                if(by <= 0 || by >= 144) bdy = -bdy;
+                if(bx <= 12) {
+                    if(by > p1 && by < p1 + 40) bdx = -bdx;
+                    else { alert("Boundary loss recorded."); closeActiveArcadeGame(); return; }
+                }
+                if(bx >= 242) {
+                    if(by > p2 && by < p2 + 40) bdx = -bdx;
+                    else { bdx = -bdx; }
+                }
+                if(by > p2 + 15 && p2 < 110) p2 += cpuTrackingSpeed; else if(p2 > 0) p2 -= cpuTrackingSpeed;
+                ctx.fillStyle = '#0b0f12'; ctx.fillRect(0,0,260,150);
+                ctx.fillStyle = '#6ee7b7'; ctx.fillRect(4, p1, 8, 40); ctx.fillRect(248, p2, 8, 40);
+                ctx.fillStyle = '#ff8a80'; ctx.fillRect(bx, by, 6, 6);
+            }, 30);
+        }
+
+        function runFruitCollectorEngine(mount) {
+            mount.innerHTML = `<canvas id="catchCanvas" width="260" height="180" style="background:#0b0f12; border:1px solid #333;"></canvas>`;
+            const canvas = document.getElementById('catchCanvas'); const ctx = canvas.getContext('2d');
+            let bx = 110, score = 0, item = {x: 100, y: 0};
+            
+            let physicsGravity = 5;
+            if (StorageState.selectedDifficulty === 'easy') physicsGravity = 3;
+            if (StorageState.selectedDifficulty === 'hard') physicsGravity = 8;
+
+            window.gameInputRouterCallback = (key) => {
+                if(key === 'ArrowLeft') bx = Math.max(0, bx - 16); if(key === 'ArrowRight') bx = Math.min(210, bx + 16);
+            };
+            window.gameIntervalId = setInterval(() => {
+                item.y += physicsGravity;
+                if(item.y > 170) {
+                    if(item.x > bx && item.x < bx + 50) { score++; item.y = 0; item.x = Math.random()*230; }
+                    else { alert("Sequence result score: " + score); score = 0; item.y = 0; }
+                }
+                ctx.fillStyle = '#0b0f12'; ctx.fillRect(0,0,260,180);
+                ctx.fillStyle = '#ff007f'; ctx.fillRect(item.x, item.y, 10, 10);
+                ctx.fillStyle = '#00f2fe'; ctx.fillRect(bx, 168, 50, 8);
+            }, 45);
+        }
+
+        function runBlockEvadeEngine(mount) {
+            mount.innerHTML = `<canvas id="evadeCanvas" width="260" height="160" style="background:#0b0f12; border:1px solid #333;"></canvas>`;
+            const canvas = document.getElementById('evadeCanvas'); const ctx = canvas.getContext('2d');
+            let py = 120, jumping = false, bx = 260, velocity = 0;
+            
+            let obstacleSpeed = 6;
+            if (StorageState.selectedDifficulty === 'easy') obstacleSpeed = 4;
+            if (StorageState.selectedDifficulty === 'hard') obstacleSpeed = 9;
+
+            window.gameInputRouterCallback = (key) => { if((key === 'ArrowUp' || key === ' ' || key === 'Enter') && !jumping) { velocity = -11; jumping = true; } };
+            window.gameIntervalId = setInterval(() => {
+                if(jumping) { py += velocity; velocity += 1.2; if(py >= 120) { py = 120; jumping = false; } }
+                bx -= obstacleSpeed; if(bx < -15) bx = 260;
+                if(bx > 20 && bx < 36 && py > 105) { alert("Vector intersection collision exception."); closeActiveArcadeGame(); return; }
+                ctx.fillStyle = '#0b0f12'; ctx.fillRect(0,0,260,160);
+                ctx.fillStyle = '#7c4dff'; ctx.fillRect(20, py, 16, 24);
+                ctx.fillStyle = '#ef4444'; ctx.fillRect(bx, 124, 14, 20);
+                ctx.fillStyle = '#334155'; ctx.fillRect(0, 144, 260, 16);
+            }, 35);
+        }
+
+        // Vault Verification Controllers
+        function unlockSystemVaultContainer() {
+            if(document.getElementById('vault-passphrase-input').value === StorageState.systemPin) {
+                document.getElementById('vault-auth-screen').style.display = 'none';
+                document.getElementById('vault-explorer-view').style.display = 'flex';
+                populateVaultFileExplorerGrid();
+            } else { alert("ACCESS SYSTEM REPORT: Token validation mismatch."); }
+        }
+        function relockVaultStorage() {
+            document.getElementById('vault-passphrase-input').value = '';
+            document.getElementById('vault-auth-screen').style.display = 'flex';
+            document.getElementById('vault-explorer-view').style.display = 'none';
+        }
+
+        function populateVaultFileExplorerGrid() {
+            const grid = document.getElementById('vault-file-explorer-grid'); grid.innerHTML = '';
+            VirtualFileSystem.forEach(file => {
+                const card = document.createElement('div'); card.className = 'vault-item-card';
+                let preview = `<div class="vault-thumbnail">📄</div>`;
+                if(file.data.startsWith('data:image')) preview = `<img class="vault-thumbnail" src="${file.data}">`;
+                card.innerHTML = `${preview}<div class="vault-meta-title" title="${file.name}">${file.name}</div>
+                    <div style="display:flex; gap:4px; width:100%; margin-top:2px;">
+                        <button class="action-btn" style="height:20px; font-size:8px; padding:0 4px; flex:1;" onclick="exportVaultAssetToHardware('${file.id}')">Get</button>
+                        <button class="action-btn" style="height:20px; font-size:8px; padding:0 4px; flex:1; background:#e11d48;" onclick="purgeVaultAssetSector('${file.id}')">Del</button>
+                    </div>`;
+                grid.appendChild(card);
+            });
+        }
+
+        function purgeVaultAssetSector(id) {
+            if(confirm("Confirm asset sector modification? Elements will be unmapped completely.")) {
+                const idx = VirtualFileSystem.findIndex(f => f.id === id);
+                if(idx > -1) { 
+                    VirtualFileSystem.splice(idx, 1); 
+                    syncVirtualFileSystemToCache();
+                    populateVaultFileExplorerGrid(); 
+                }
+            }
+        }
+
+        function exportVaultAssetToHardware(id) {
+            const file = VirtualFileSystem.find(f => f.id === id); if (!file) return;
+            const dl = document.createElement('a'); dl.href = file.data; dl.download = `Export_${file.name}`;
+            document.body.appendChild(dl); dl.click(); document.body.removeChild(dl);
+        }
+
+        // Antivirus Functional Engine Integration
+        function triggerAntivirusSystemScan(scanProfile) {
+            const progressContainer = document.getElementById('av-progress-box');
+            const typeLabel = document.getElementById('av-scan-type-lbl');
+            const pctLabel = document.getElementById('av-scan-pct-lbl');
+            const bar = document.getElementById('av-scan-bar');
+            const assetLabel = document.getElementById('av-current-file-lbl');
+            const terminal = document.getElementById('av-log-terminal');
+            const headline = document.getElementById('av-status-headline');
+            const description = document.getElementById('av-status-description');
+
+            progressContainer.style.display = 'block';
+            headline.innerText = "Evaluating System State...";
+            description.innerText = "Analyzing isolated virtual storage files for pattern structural vulnerabilities.";
+            
+            let trackingCounter = 0;
+            typeLabel.innerText = scanProfile === 'quick' ? "Quick Allocation Scan Running..." : "Deep Master Directory Scan...";
+            
+            terminal.innerHTML += `<br>[SCAN] Initiating profile checkpoint: ${scanProfile.toUpperCase()}`;
+            terminal.scrollTop = terminal.scrollHeight;
+
+            let simulationFiles = [
+                "boot_sector.sys", "vfs_cache.db", "paint10_buffer.tmp", 
+                "audio_stream_decoder.dll", "security_seed_key.cfg", "pad_notes_index.json"
+            ];
+            
+            // Append runtime artifacts from user file storage block
+            VirtualFileSystem.forEach(f => { simulationFiles.push(f.name); });
+
+            let intervalVelocity = scanProfile === 'quick' ? 30 : 60;
+
+            let avTimer = setInterval(() => {
+                trackingCounter += 2;
+                pctLabel.innerText = `${trackingCounter}%`;
+                bar.style.width = `${trackingCounter}%`;
+
+                let mockIndex = Math.floor((trackingCounter / 100) * simulationFiles.length);
+                if(simulationFiles[mockIndex]) {
+                    assetLabel.innerText = `Reading: /root/virtual_disk/${simulationFiles[mockIndex]}`;
+                }
+
+                if (trackingCounter % 20 === 0) {
+                    terminal.innerHTML += `<br>[OK] Checked sector offset 0x${(trackingCounter*142).toString(16).toUpperCase()}`;
+                    terminal.scrollTop = terminal.scrollHeight;
+                }
+
+                if(trackingCounter >= 100) {
+                    clearInterval(avTimer);
+                    progressContainer.style.display = 'none';
+                    headline.innerText = "System Integrity Verified Secure";
+                    description.innerText = `Successfully audited ${simulationFiles.length} object segments. Zero structural vectors isolated.`;
+                    terminal.innerHTML += `<br>[COMPLETE] Check finished. Status: CLEAN. Threat ledger index 0.`;
+                    terminal.scrollTop = terminal.scrollHeight;
+                }
+            }, intervalVelocity);
+        }
+
+        // Global Configuration Drivers
+        function verifySettingsTier1Pin() {
+            if (document.getElementById('settings-pin-entry').value === StorageState.systemPin) {
+                StorageState.settingsTier1Passed = true;
+                document.getElementById('settings-pin-entry').value = '';
+                document.getElementById('settings-gate-stage1').style.display = 'none';
+                document.getElementById('settings-core-view').style.display = 'flex';
+            } else { alert("ACCESS SYSTEM REPORT: Token validation mismatch."); }
+        }
+
+        function relockSettingsAppEngine() {
+            StorageState.settingsTier1Passed = false;
+            document.getElementById('settings-gate-stage1').style.display = 'flex';
+            document.getElementById('settings-core-view').style.display = 'none';
+        }
+
+        function commitAdvancedSecurityParameters() {
+            const p1 = document.getElementById('set-pin-1').value.trim();
+            const p2 = document.getElementById('set-pin-2').value.trim();
+            
+            if (p1.length > 0) {
+                StorageState.systemPin = p1;
+                localStorage.setItem('omni_sec_pin', p1);
+            }
+            if (p2.length > 0) {
+                StorageState.systemTier2Key = p2;
+                localStorage.setItem('omni_sec_t2', p2);
+            }
+            
+            if(p1.length > 0 || p2.length > 0) {
+                alert("Administrative master password parameters rewritten successfully.");
+            } else {
+                alert("Error: Input key parameters cannot be parsed completely blank.");
+            }
+            
+            document.getElementById('set-pin-1').value = '';
+            document.getElementById('set-pin-2').value = '';
+            relockSettingsAppEngine();
+        }
+
+        function executeSystemMasterFactoryReset() {
+            if (confirm("CRITICAL ALIGNMENT ALERT:\nAre you sure you want to completely clear local storage allocations? All notes, drawings, and custom credentials will be unmapped immediately.")) {
+                try {
+                    localStorage.clear();
+                    alert("Local Cache Blocks Cleared. Rebooting architecture framework model.");
+                    window.location.reload();
+                } catch(err) {
+                    alert("Failure to parse clear execution command string.");
+                }
+            }
+        }
+
+        function toggleVirtualDpadDisplay(isChecked) {
+            StorageState.touchGamepadEnabled = isChecked;
+            document.getElementById('arcade-dpad-controller').style.display = (isChecked && StorageState.activeGame) ? 'grid' : 'none';
+        }
+
+        function toggleMapImagerySource(useSat) {
+            StorageState.useSatelliteTiles = useSat;
+            if (globalLeafletMapInstance && mapTileLayerReference) {
+                globalLeafletMapInstance.removeLayer(mapTileLayerReference);
+                let url = useSat ? 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}' : 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+                let att = useSat ? 'Tiles &copy; Esri' : '&copy; OpenStreetMap';
+                mapTileLayerReference = L.tileLayer(url, { maxZoom: 19, attribution: att });
+                mapTileLayerReference.addTo(globalLeafletMapInstance);
+            }
+        }
+
+        function changeSystemDesktopWallpaper(styleMode) {
+            document.querySelectorAll('.wp-box').forEach(b => b.classList.remove('active'));
+            if(styleMode === 'preset1') {
+                document.body.style.backgroundImage = 'radial-gradient(circle at 50% 50%, rgba(10, 8, 20, 0.9) 0%, rgba(3, 2, 8, 1) 100%)';
+                document.getElementById('wp-preset-1').classList.add('active');
+            } else if (styleMode === 'preset2') {
+                document.body.style.backgroundImage = 'linear-gradient(135deg, #1e3a8a 0%, #0f172a 100%)';
+                document.getElementById('wp-preset-2').classList.add('active');
+            } else if (styleMode === 'preset3') {
+                document.body.style.backgroundImage = 'linear-gradient(135deg, #581c87 0%, #1e1b4b 100%)';
+                document.getElementById('wp-preset-3').classList.add('active');
+            }
+        }
+
+        function handleCustomWallpaperUpload(input) {
+            if(input.files && input.files[0]) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const customBgUrl = e.target.result;
+                    document.body.style.backgroundImage = `url('${customBgUrl}')`;
+                    document.querySelectorAll('.wp-box').forEach(b => b.classList.remove('active'));
+                    const customBox = document.getElementById('wp-custom-preview');
+                    customBox.style.backgroundImage = `url('${customBgUrl}')`;
+                    customBox.classList.add('active');
+                };
+                reader.readAsDataURL(input.files[0]);
+            }
+        }
+
+        const FrameworkDiagnostics = {
+            executionLogs: [],
+            pushLogEntry: function(tag, data) {
+                this.executionLogs.push({ tick: Date.now(), domain: tag, context: data });
+                if(this.executionLogs.length > 100) this.executionLogs.shift();
+            }
+        };
+        FrameworkDiagnostics.pushLogEntry("CORE_INIT", "CoreShell system runtime loop started.");
+        
+        // Render current locked UI structures based on historical runtime storage states
+        evaluateLockscreenStateLayout();
+    </script>
+</body>
+</html>
